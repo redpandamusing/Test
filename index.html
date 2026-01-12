@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nyan Cats 🌈🐱</title>
-    <link rel="stylesheet" href="styles.css?v=6">
+    <link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
     <div class="game-wrapper">
@@ -23,12 +23,21 @@
                     <h3>Best</h3>
                     <div id="best-score">0</div>
                 </div>
+                <div class="power-ups">
+                    <h3>⚡ Powers</h3>
+                    <button id="shake-btn" class="power-btn" title="Shake all cats!">
+                        <span class="power-icon">🫨</span>
+                        <span class="power-name">Shake</span>
+                        <span class="power-count" id="shake-count">3</span>
+                    </button>
+                </div>
             </div>
             
             <div class="game-area">
                 <div class="next-cat-preview">
                     <span>Next:</span>
                     <div id="next-cat-display"></div>
+                    <div id="bomb-indicator" class="bomb-indicator hidden">💣</div>
                 </div>
                 <canvas id="game-canvas"></canvas>
                 <div id="game-over-overlay" class="hidden">
@@ -49,11 +58,11 @@
         </div>
         
         <div class="instructions">
-            <p>🎮 Click to drop nyans ✨ Match same cats to evolve them! 🌈</p>
+            <p>🎮 Click to drop nyans ✨ Match same cats to evolve! 💣 Bomb cats explode on merge!</p>
         </div>
     </div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-    <script src="game.js?v=6"></script>
+    <script src="game.js?v=7"></script>
 </body>
 </html>

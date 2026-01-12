@@ -27,6 +27,8 @@ const GAME_HEIGHT = 600;
 const DROP_ZONE_HEIGHT = 80;
 const WALL_THICKNESS = 20;
 const DROP_COOLDOWN = 500;
+const BOMB_CHANCE = 0.08; // 8% chance for bomb cat
+const BOMB_EXPLOSION_RADIUS = 80;
 
 // Animation state
 let animationFrame = 0;
@@ -43,6 +45,11 @@ let gameOver = false;
 let mouseX = GAME_WIDTH / 2;
 let pendingMerges = [];
 let droppedBodies = new Set();
+
+// Power-up state
+let shakesRemaining = 3;
+let nextIsBomb = false;
+let currentIsBomb = false;
 
 // Initialize the game
 function init() {
@@ -102,10 +109,12 @@ function init() {
     canvas_element.addEventListener('touchmove', handleTouchMove);
 
     document.getElementById('restart-btn').addEventListener('click', restartGame);
+    document.getElementById('shake-btn').addEventListener('click', shakeBox);
 
     updateScore();
     generateNextCat();
     populateCatGuide();
+    updateShakeButton();
     
     setInterval(checkGameOver, 1000);
     
@@ -123,10 +132,61 @@ function init() {
     }, 50);
 }
 
+// Shake the box - power up!
+function shakeBox() {
+    if (shakesRemaining <= 0 || gameOver) return;
+    
+    shakesRemaining--;
+    updateShakeButton();
+    
+    // Add screen shake effect
+    const gameArea = document.querySelector('.game-area');
+    gameArea.classList.add('shaking');
+    setTimeout(() => gameArea.classList.remove('shaking'), 500);
+    
+    // Apply random forces to all cats
+    const bodies = Composite.allBodies(engine.world);
+    
+    for (let body of bodies) {
+        if (body.catType !== undefined) {
+            const forceX = (Math.random() - 0.5) * 0.05;
+            const forceY = (Math.random() - 0.5) * 0.03 - 0.02; // Slight upward bias
+            Body.applyForce(body, body.position, { x: forceX, y: forceY });
+        }
+    }
+    
+    // Create shake particles
+    for (let i = 0; i < 20; i++) {
+        sparkles.push({
+            x: Math.random() * GAME_WIDTH,
+            y: Math.random() * GAME_HEIGHT,
+            vx: (Math.random() - 0.5) * 4,
+            vy: (Math.random() - 0.5) * 4,
+            life: 15,
+            size: 5 + Math.random() * 5,
+            color: RAINBOW_COLORS[Math.floor(Math.random() * RAINBOW_COLORS.length)],
+            type: 'circle'
+        });
+    }
+}
+
+function updateShakeButton() {
+    const btn = document.getElementById('shake-btn');
+    const count = document.getElementById('shake-count');
+    count.textContent = shakesRemaining;
+    btn.disabled = shakesRemaining <= 0;
+}
+
 function generateNextCat() {
     currentCatType = nextCatType;
+    currentIsBomb = nextIsBomb;
+    
+    // Generate next cat
     nextCatType = Math.floor(Math.random() * 5);
+    nextIsBomb = Math.random() < BOMB_CHANCE;
+    
     updateNextCatDisplay();
+    updateBombIndicator();
 }
 
 function updateNextCatDisplay() {
@@ -139,29 +199,62 @@ function updateNextCatDisplay() {
     const ctx = previewCanvas.getContext('2d');
     
     // Draw mini cat
-    drawCatPreview(ctx, 25, 25, Math.min(cat.radius * 0.6, 20), cat, nextCatType);
+    drawCatPreview(ctx, 25, 25, Math.min(cat.radius * 0.6, 20), cat, nextCatType, nextIsBomb);
 }
 
-function drawCatPreview(ctx, x, y, r, cat, typeIndex) {
+function updateBombIndicator() {
+    const indicator = document.getElementById('bomb-indicator');
+    if (nextIsBomb) {
+        indicator.classList.remove('hidden');
+    } else {
+        indicator.classList.add('hidden');
+    }
+}
+
+function drawCatPreview(ctx, x, y, r, cat, typeIndex, isBomb = false) {
     ctx.save();
     ctx.translate(x, y);
     
     // Body
-    const gradient = ctx.createRadialGradient(-r * 0.2, -r * 0.2, 0, 0, 0, r);
-    gradient.addColorStop(0, lightenColor(cat.color === 'rainbow' ? '#FFB7C5' : cat.color, 40));
-    gradient.addColorStop(1, cat.color === 'rainbow' ? '#FFB7C5' : cat.color);
+    let gradient;
+    if (isBomb) {
+        gradient = ctx.createRadialGradient(-r * 0.2, -r * 0.2, 0, 0, 0, r);
+        gradient.addColorStop(0, '#FF6B6B');
+        gradient.addColorStop(0.5, '#FF4500');
+        gradient.addColorStop(1, '#8B0000');
+    } else {
+        gradient = ctx.createRadialGradient(-r * 0.2, -r * 0.2, 0, 0, 0, r);
+        gradient.addColorStop(0, lightenColor(cat.color === 'rainbow' ? '#FFB7C5' : cat.color, 40));
+        gradient.addColorStop(1, cat.color === 'rainbow' ? '#FFB7C5' : cat.color);
+    }
     
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.fillStyle = gradient;
     ctx.fill();
     
-    // Simple face
-    ctx.fillStyle = '#333';
-    ctx.beginPath();
-    ctx.arc(-r * 0.3, -r * 0.1, r * 0.15, 0, Math.PI * 2);
-    ctx.arc(r * 0.3, -r * 0.1, r * 0.15, 0, Math.PI * 2);
-    ctx.fill();
+    if (isBomb) {
+        // Draw bomb fuse
+        ctx.strokeStyle = '#8B4513';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -r);
+        ctx.quadraticCurveTo(r * 0.5, -r * 1.3, r * 0.3, -r * 1.5);
+        ctx.stroke();
+        
+        // Spark at end of fuse
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.arc(r * 0.3, -r * 1.5, 3, 0, Math.PI * 2);
+        ctx.fill();
+    } else {
+        // Simple face
+        ctx.fillStyle = '#333';
+        ctx.beginPath();
+        ctx.arc(-r * 0.3, -r * 0.1, r * 0.15, 0, Math.PI * 2);
+        ctx.arc(r * 0.3, -r * 0.1, r * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+    }
     
     // Blush
     ctx.fillStyle = 'rgba(255, 150, 180, 0.6)';
@@ -200,7 +293,7 @@ function dropCat(x) {
     const maxX = GAME_WIDTH - cat.radius - 5;
     x = Math.max(minX, Math.min(maxX, x));
     
-    const body = createCatBody(x, DROP_ZONE_HEIGHT / 2, currentCatType);
+    const body = createCatBody(x, DROP_ZONE_HEIGHT / 2, currentCatType, currentIsBomb);
     Composite.add(engine.world, body);
     
     setTimeout(() => {
@@ -215,7 +308,7 @@ function dropCat(x) {
     }, DROP_COOLDOWN);
 }
 
-function createCatBody(x, y, typeIndex) {
+function createCatBody(x, y, typeIndex, isBomb = false) {
     const cat = CAT_TYPES[typeIndex];
     const body = Bodies.circle(x, y, cat.radius, {
         restitution: 0.2,
@@ -230,6 +323,7 @@ function createCatBody(x, y, typeIndex) {
         }
     });
     body.catType = typeIndex;
+    body.isBomb = isBomb;
     return body;
 }
 
@@ -240,9 +334,12 @@ function handleCollision(event) {
         const bodyA = pair.bodyA;
         const bodyB = pair.bodyB;
         
+        // Check if both are cats of the same type
         if (bodyA.catType !== undefined && bodyB.catType !== undefined) {
             if (bodyA.catType === bodyB.catType && bodyA.catType < CAT_TYPES.length - 1) {
-                pendingMerges.push({ bodyA, bodyB });
+                // Check if either is a bomb
+                const hasBomb = bodyA.isBomb || bodyB.isBomb;
+                pendingMerges.push({ bodyA, bodyB, hasBomb });
             }
         }
     }
@@ -252,7 +349,7 @@ function processMerges() {
     const processed = new Set();
     
     for (let merge of pendingMerges) {
-        const { bodyA, bodyB } = merge;
+        const { bodyA, bodyB, hasBomb } = merge;
         
         if (processed.has(bodyA.id) || processed.has(bodyB.id)) continue;
         if (!Composite.get(engine.world, bodyA.id, 'body')) continue;
@@ -269,18 +366,129 @@ function processMerges() {
         droppedBodies.delete(bodyA.id);
         droppedBodies.delete(bodyB.id);
         
-        const newTypeIndex = bodyA.catType + 1;
-        const newBody = createCatBody(midX, midY, newTypeIndex);
-        Composite.add(engine.world, newBody);
-        droppedBodies.add(newBody.id);
-        
-        score += CAT_TYPES[newTypeIndex].points;
-        updateScore();
-        
-        createMergeEffect(midX, midY, newTypeIndex);
+        // If bomb, trigger explosion instead of creating new cat
+        if (hasBomb) {
+            triggerExplosion(midX, midY, bodyA.catType);
+        } else {
+            // Create new bigger cat
+            const newTypeIndex = bodyA.catType + 1;
+            const newBody = createCatBody(midX, midY, newTypeIndex);
+            Composite.add(engine.world, newBody);
+            droppedBodies.add(newBody.id);
+            
+            score += CAT_TYPES[newTypeIndex].points;
+            updateScore();
+            
+            createMergeEffect(midX, midY, newTypeIndex);
+        }
     }
     
     pendingMerges = [];
+}
+
+function triggerExplosion(x, y, catType) {
+    // Visual explosion effect
+    createExplosionEffect(x, y);
+    
+    // Remove nearby small cats (smaller or equal size)
+    const bodies = Composite.allBodies(engine.world);
+    const removedCats = [];
+    
+    for (let body of bodies) {
+        if (body.catType !== undefined && body.catType <= catType + 1) {
+            const dx = body.position.x - x;
+            const dy = body.position.y - y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < BOMB_EXPLOSION_RADIUS) {
+                removedCats.push(body);
+            }
+        }
+    }
+    
+    // Remove cats and add bonus points
+    for (let cat of removedCats) {
+        Composite.remove(engine.world, cat);
+        droppedBodies.delete(cat.id);
+        score += Math.floor(CAT_TYPES[cat.catType].points * 0.5); // Half points for exploded cats
+    }
+    
+    // Bonus for explosion
+    score += 10 + removedCats.length * 5;
+    updateScore();
+    
+    // Screen shake for explosion
+    const gameArea = document.querySelector('.game-area');
+    gameArea.classList.add('shaking');
+    setTimeout(() => gameArea.classList.remove('shaking'), 300);
+}
+
+function createExplosionEffect(x, y) {
+    // Create explosion ring in DOM
+    const canvas = document.getElementById('game-canvas');
+    const rect = canvas.getBoundingClientRect();
+    
+    for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+            const ring = document.createElement('div');
+            ring.className = 'explosion-ring';
+            ring.style.cssText = `
+                position: fixed;
+                left: ${rect.left + x - 50}px;
+                top: ${rect.top + y - 50}px;
+                width: 100px;
+                height: 100px;
+                border-color: ${['#FF4500', '#FFD700', '#FF6347'][i]};
+            `;
+            document.body.appendChild(ring);
+            setTimeout(() => ring.remove(), 500);
+        }, i * 100);
+    }
+    
+    // Create lots of sparkles
+    for (let i = 0; i < 30; i++) {
+        const angle = (i / 30) * Math.PI * 2;
+        const speed = 3 + Math.random() * 5;
+        sparkles.push({
+            x: x,
+            y: y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 25,
+            size: 10 + Math.random() * 10,
+            color: ['#FF4500', '#FFD700', '#FF6347', '#FFA500'][Math.floor(Math.random() * 4)],
+            type: Math.random() > 0.5 ? 'star' : 'circle'
+        });
+    }
+    
+    // Create emoji particles
+    const explosionEmojis = ['💥', '🔥', '✨', '💫', '⭐'];
+    for (let i = 0; i < 10; i++) {
+        const particle = document.createElement('div');
+        particle.innerHTML = explosionEmojis[Math.floor(Math.random() * explosionEmojis.length)];
+        particle.style.cssText = `
+            position: fixed;
+            font-size: 24px;
+            pointer-events: none;
+            z-index: 1000;
+        `;
+        
+        particle.style.left = (rect.left + x) + 'px';
+        particle.style.top = (rect.top + y) + 'px';
+        
+        document.body.appendChild(particle);
+        
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 80 + Math.random() * 40;
+        
+        particle.animate([
+            { transform: 'scale(0) rotate(0deg)', opacity: 1 },
+            { transform: `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px) scale(1.5) rotate(360deg)`, opacity: 0 }
+        ], {
+            duration: 800,
+            easing: 'ease-out'
+        }).onfinish = () => particle.remove();
+    }
 }
 
 function createMergeEffect(x, y, typeIndex) {
@@ -376,7 +584,7 @@ function drawCatFaces() {
         // Draw preview cat
         ctx.save();
         ctx.globalAlpha = 0.7;
-        drawNyanCat(ctx, previewX, DROP_ZONE_HEIGHT / 2, cat, currentCatType);
+        drawNyanCat(ctx, previewX, DROP_ZONE_HEIGHT / 2, cat, currentCatType, 0, currentIsBomb);
         ctx.restore();
     }
     
@@ -384,7 +592,7 @@ function drawCatFaces() {
     for (let body of bodies) {
         if (body.catType !== undefined) {
             const cat = CAT_TYPES[body.catType];
-            drawNyanCat(ctx, body.position.x, body.position.y, cat, body.catType, body.angle);
+            drawNyanCat(ctx, body.position.x, body.position.y, cat, body.catType, body.angle, body.isBomb);
         }
     }
     
@@ -437,7 +645,7 @@ function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
 }
 
 // Main cat drawing function - CIRCULAR KAWAII STYLE (like Suika game)!
-function drawNyanCat(ctx, x, y, cat, typeIndex, angle = 0) {
+function drawNyanCat(ctx, x, y, cat, typeIndex, angle = 0, isBomb = false) {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
@@ -447,22 +655,32 @@ function drawNyanCat(ctx, x, y, cat, typeIndex, angle = 0) {
     const bobOffset = Math.sin(animationFrame * 0.3 + typeIndex) * 1;
     
     // Rainbow trail for special cats (type 8+)
-    if (typeIndex >= 8) {
+    if (typeIndex >= 8 && !isBomb) {
         drawRainbowTrail(ctx, r);
     }
     
     ctx.save();
     ctx.translate(0, bobOffset);
     
-    // Outer glow for bigger cats
-    if (typeIndex >= 6) {
+    // Outer glow
+    if (isBomb) {
+        ctx.shadowColor = '#FF4500';
+        ctx.shadowBlur = 15 + Math.sin(animationFrame * 0.5) * 5;
+    } else if (typeIndex >= 6) {
         ctx.shadowColor = cat.secondaryColor;
         ctx.shadowBlur = 20;
     }
     
-    // Main circular body with gradient (the circle IS the boundary)
+    // Main circular body with gradient
     let bodyGradient;
-    if (isRainbow) {
+    if (isBomb) {
+        // Bomb cat - red/orange fiery gradient
+        bodyGradient = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 0, 0, 0, r);
+        bodyGradient.addColorStop(0, '#FFAA00');
+        bodyGradient.addColorStop(0.4, '#FF6B6B');
+        bodyGradient.addColorStop(0.7, '#FF4500');
+        bodyGradient.addColorStop(1, '#8B0000');
+    } else if (isRainbow) {
         bodyGradient = ctx.createLinearGradient(-r, -r, r, r);
         RAINBOW_COLORS.forEach((color, i) => {
             bodyGradient.addColorStop(i / (RAINBOW_COLORS.length - 1), color);
@@ -481,27 +699,92 @@ function drawNyanCat(ctx, x, y, cat, typeIndex, angle = 0) {
     ctx.fill();
     
     // Subtle border
-    ctx.strokeStyle = darkenColor(isRainbow ? '#FF69B4' : cat.color, 30);
+    ctx.strokeStyle = isBomb ? '#8B0000' : darkenColor(isRainbow ? '#FF69B4' : cat.color, 30);
     ctx.lineWidth = 2;
     ctx.stroke();
     
     // Reset shadow for face details
     ctx.shadowBlur = 0;
     
-    // Draw ears (positioned at top of circle)
-    drawKawaiiEars(ctx, r, isRainbow ? '#FFB7C5' : cat.color, '#FFB6C1');
-    
-    // Face based on expression
-    drawKawaiiFace(ctx, r, cat.expression, typeIndex);
+    if (isBomb) {
+        // Draw bomb features
+        drawBombFace(ctx, r);
+    } else {
+        // Draw ears (positioned at top of circle)
+        drawKawaiiEars(ctx, r, isRainbow ? '#FFB7C5' : cat.color, '#FFB6C1');
+        
+        // Face based on expression
+        drawKawaiiFace(ctx, r, cat.expression, typeIndex);
+    }
     
     ctx.restore(); // Remove bob offset
     
     // Floating stars/hearts for special cats
-    if (typeIndex >= 5) {
+    if (typeIndex >= 5 && !isBomb) {
         drawFloatingEffects(ctx, r, typeIndex);
     }
     
     ctx.restore();
+}
+
+function drawBombFace(ctx, r) {
+    // Fuse
+    ctx.strokeStyle = '#8B4513';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 0.8);
+    ctx.quadraticCurveTo(r * 0.4, -r * 1.1, r * 0.2, -r * 1.3);
+    ctx.stroke();
+    
+    // Spark/flame at fuse
+    const sparkSize = 5 + Math.sin(animationFrame * 0.5) * 3;
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath();
+    ctx.arc(r * 0.2, -r * 1.3, sparkSize, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#FF4500';
+    ctx.beginPath();
+    ctx.arc(r * 0.2, -r * 1.3, sparkSize * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Angry/excited eyes (X_X style or >_<)
+    ctx.strokeStyle = '#FFF';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    
+    const eyeSpacing = r * 0.3;
+    const eyeY = -r * 0.1;
+    const eyeSize = r * 0.15;
+    
+    // Left X eye
+    ctx.beginPath();
+    ctx.moveTo(-eyeSpacing - eyeSize, eyeY - eyeSize);
+    ctx.lineTo(-eyeSpacing + eyeSize, eyeY + eyeSize);
+    ctx.moveTo(-eyeSpacing + eyeSize, eyeY - eyeSize);
+    ctx.lineTo(-eyeSpacing - eyeSize, eyeY + eyeSize);
+    ctx.stroke();
+    
+    // Right X eye
+    ctx.beginPath();
+    ctx.moveTo(eyeSpacing - eyeSize, eyeY - eyeSize);
+    ctx.lineTo(eyeSpacing + eyeSize, eyeY + eyeSize);
+    ctx.moveTo(eyeSpacing + eyeSize, eyeY - eyeSize);
+    ctx.lineTo(eyeSpacing - eyeSize, eyeY + eyeSize);
+    ctx.stroke();
+    
+    // Mischievous grin
+    ctx.beginPath();
+    ctx.arc(0, r * 0.25, r * 0.25, 0, Math.PI);
+    ctx.stroke();
+    
+    // Blush
+    ctx.fillStyle = 'rgba(255, 100, 100, 0.5)';
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.5, r * 0.15, r * 0.12, r * 0.08, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(r * 0.5, r * 0.15, r * 0.12, r * 0.08, 0, 0, Math.PI * 2);
+    ctx.fill();
 }
 
 function drawRainbowTrail(ctx, r) {
@@ -873,8 +1156,10 @@ function restartGame() {
     droppedBodies.clear();
     pendingMerges = [];
     sparkles = [];
+    shakesRemaining = 3;
     
     updateScore();
+    updateShakeButton();
     generateNextCat();
     document.getElementById('game-over-overlay').classList.add('hidden');
 }
