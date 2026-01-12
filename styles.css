@@ -116,10 +116,11 @@ body::before {
 #score, #best-score {
     font-size: 2.2rem;
     font-weight: bold;
-    color: #9932CC;
-    text-shadow: 
-        1px 1px 0 #FF69B4,
-        2px 2px 4px rgba(153, 50, 204, 0.3);
+    background: linear-gradient(135deg, #C41E3A, #8B008B, #4B0082);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.3));
 }
 
 .cat-guide {
