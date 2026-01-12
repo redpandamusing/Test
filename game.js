@@ -147,7 +147,7 @@ function drawCatPreview(ctx, x, y, r, cat, typeIndex) {
     ctx.translate(x, y);
     
     // Body
-    const gradient = ctx.createRadialGradient(0, -r * 0.2, 0, 0, 0, r);
+    const gradient = ctx.createRadialGradient(-r * 0.2, -r * 0.2, 0, 0, 0, r);
     gradient.addColorStop(0, lightenColor(cat.color === 'rainbow' ? '#FFB7C5' : cat.color, 40));
     gradient.addColorStop(1, cat.color === 'rainbow' ? '#FFB7C5' : cat.color);
     
@@ -436,7 +436,7 @@ function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
     ctx.fill();
 }
 
-// Main Nyan Cat drawing function - KAWAII STYLE!
+// Main cat drawing function - CIRCULAR KAWAII STYLE (like Suika game)!
 function drawNyanCat(ctx, x, y, cat, typeIndex, angle = 0) {
     ctx.save();
     ctx.translate(x, y);
@@ -444,60 +444,52 @@ function drawNyanCat(ctx, x, y, cat, typeIndex, angle = 0) {
     
     const r = cat.radius;
     const isRainbow = cat.color === 'rainbow';
-    const bobOffset = Math.sin(animationFrame * 0.3 + typeIndex) * 2;
+    const bobOffset = Math.sin(animationFrame * 0.3 + typeIndex) * 1;
     
     // Rainbow trail for special cats (type 8+)
     if (typeIndex >= 8) {
         drawRainbowTrail(ctx, r);
     }
     
-    // Pop-tart body (rounded rectangle like Nyan Cat!)
     ctx.save();
     ctx.translate(0, bobOffset);
     
-    // Body base color
-    let bodyColor = isRainbow ? getRainbowGradient(ctx, r) : cat.color;
-    let bodyGradient;
+    // Outer glow for bigger cats
+    if (typeIndex >= 6) {
+        ctx.shadowColor = cat.secondaryColor;
+        ctx.shadowBlur = 20;
+    }
     
+    // Main circular body with gradient (the circle IS the boundary)
+    let bodyGradient;
     if (isRainbow) {
         bodyGradient = ctx.createLinearGradient(-r, -r, r, r);
         RAINBOW_COLORS.forEach((color, i) => {
             bodyGradient.addColorStop(i / (RAINBOW_COLORS.length - 1), color);
         });
     } else {
-        bodyGradient = ctx.createRadialGradient(0, -r * 0.3, 0, 0, 0, r);
-        bodyGradient.addColorStop(0, lightenColor(cat.color, 50));
-        bodyGradient.addColorStop(0.7, cat.color);
-        bodyGradient.addColorStop(1, darkenColor(cat.color, 10));
+        bodyGradient = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 0, 0, 0, r);
+        bodyGradient.addColorStop(0, lightenColor(cat.color, 60));
+        bodyGradient.addColorStop(0.5, cat.color);
+        bodyGradient.addColorStop(1, darkenColor(cat.color, 15));
     }
     
-    // Main body (slightly rounded square like pop-tart)
-    const bodySize = r * 0.85;
+    // Draw main circular body
     ctx.beginPath();
-    roundedRect(ctx, -bodySize, -bodySize, bodySize * 2, bodySize * 2, r * 0.3);
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.fillStyle = bodyGradient;
     ctx.fill();
     
-    // Pop-tart frosting/sprinkles pattern
-    if (typeIndex >= 3) {
-        drawSprinkles(ctx, bodySize, cat.secondaryColor);
-    }
+    // Subtle border
+    ctx.strokeStyle = darkenColor(isRainbow ? '#FF69B4' : cat.color, 30);
+    ctx.lineWidth = 2;
+    ctx.stroke();
     
-    // Outer glow for bigger cats
-    if (typeIndex >= 6) {
-        ctx.shadowColor = cat.secondaryColor;
-        ctx.shadowBlur = 15;
-    }
+    // Reset shadow for face details
+    ctx.shadowBlur = 0;
     
-    // Cat face area (gray overlay)
-    const faceSize = r * 0.7;
-    ctx.beginPath();
-    ctx.arc(0, 0, faceSize, 0, Math.PI * 2);
-    ctx.fillStyle = '#808080';
-    ctx.fill();
-    
-    // Ears
-    drawKawaiiEars(ctx, r, '#808080', '#FFB6C1');
+    // Draw ears (positioned at top of circle)
+    drawKawaiiEars(ctx, r, isRainbow ? '#FFB7C5' : cat.color, '#FFB6C1');
     
     // Face based on expression
     drawKawaiiFace(ctx, r, cat.expression, typeIndex);
@@ -509,39 +501,6 @@ function drawNyanCat(ctx, x, y, cat, typeIndex, angle = 0) {
         drawFloatingEffects(ctx, r, typeIndex);
     }
     
-    ctx.restore();
-}
-
-function roundedRect(ctx, x, y, width, height, radius) {
-    ctx.moveTo(x + radius, y);
-    ctx.lineTo(x + width - radius, y);
-    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-    ctx.lineTo(x + width, y + height - radius);
-    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-    ctx.lineTo(x + radius, y + height);
-    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-    ctx.lineTo(x, y + radius);
-    ctx.quadraticCurveTo(x, y, x + radius, y);
-}
-
-function drawSprinkles(ctx, size, color) {
-    ctx.save();
-    const sprinkleColors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA'];
-    
-    for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2 + animationFrame * 0.02;
-        const dist = size * 0.5;
-        const sx = Math.cos(angle) * dist;
-        const sy = Math.sin(angle) * dist;
-        
-        ctx.fillStyle = sprinkleColors[i % sprinkleColors.length];
-        ctx.beginPath();
-        ctx.save();
-        ctx.translate(sx, sy);
-        ctx.rotate(angle);
-        ctx.fillRect(-3, -1, 6, 2);
-        ctx.restore();
-    }
     ctx.restore();
 }
 
@@ -560,36 +519,36 @@ function drawRainbowTrail(ctx, r) {
 }
 
 function drawKawaiiEars(ctx, r, baseColor, innerColor) {
-    const earSize = r * 0.4;
-    const earOffset = r * 0.45;
-    const earY = -r * 0.55;
+    const earSize = r * 0.45;
+    const earOffset = r * 0.55;
+    const earY = -r * 0.7;
     
     // Left ear
     ctx.beginPath();
-    ctx.moveTo(-earOffset - earSize * 0.4, earY);
-    ctx.lineTo(-earOffset, earY - earSize);
-    ctx.lineTo(-earOffset + earSize * 0.4, earY);
+    ctx.moveTo(-earOffset - earSize * 0.4, earY + earSize * 0.3);
+    ctx.lineTo(-earOffset, earY - earSize * 0.5);
+    ctx.lineTo(-earOffset + earSize * 0.4, earY + earSize * 0.3);
     ctx.closePath();
     ctx.fillStyle = baseColor;
     ctx.fill();
-    ctx.strokeStyle = '#666';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = darkenColor(baseColor, 20);
+    ctx.lineWidth = 1.5;
     ctx.stroke();
     
     // Left ear inner
     ctx.beginPath();
-    ctx.moveTo(-earOffset - earSize * 0.2, earY - earSize * 0.1);
-    ctx.lineTo(-earOffset, earY - earSize * 0.6);
-    ctx.lineTo(-earOffset + earSize * 0.2, earY - earSize * 0.1);
+    ctx.moveTo(-earOffset - earSize * 0.2, earY + earSize * 0.15);
+    ctx.lineTo(-earOffset, earY - earSize * 0.2);
+    ctx.lineTo(-earOffset + earSize * 0.2, earY + earSize * 0.15);
     ctx.closePath();
     ctx.fillStyle = innerColor;
     ctx.fill();
     
     // Right ear
     ctx.beginPath();
-    ctx.moveTo(earOffset - earSize * 0.4, earY);
-    ctx.lineTo(earOffset, earY - earSize);
-    ctx.lineTo(earOffset + earSize * 0.4, earY);
+    ctx.moveTo(earOffset - earSize * 0.4, earY + earSize * 0.3);
+    ctx.lineTo(earOffset, earY - earSize * 0.5);
+    ctx.lineTo(earOffset + earSize * 0.4, earY + earSize * 0.3);
     ctx.closePath();
     ctx.fillStyle = baseColor;
     ctx.fill();
@@ -597,16 +556,16 @@ function drawKawaiiEars(ctx, r, baseColor, innerColor) {
     
     // Right ear inner
     ctx.beginPath();
-    ctx.moveTo(earOffset - earSize * 0.2, earY - earSize * 0.1);
-    ctx.lineTo(earOffset, earY - earSize * 0.6);
-    ctx.lineTo(earOffset + earSize * 0.2, earY - earSize * 0.1);
+    ctx.moveTo(earOffset - earSize * 0.2, earY + earSize * 0.15);
+    ctx.lineTo(earOffset, earY - earSize * 0.2);
+    ctx.lineTo(earOffset + earSize * 0.2, earY + earSize * 0.15);
     ctx.closePath();
     ctx.fillStyle = innerColor;
     ctx.fill();
 }
 
 function drawKawaiiFace(ctx, r, expression, typeIndex) {
-    const eyeSpacing = r * 0.25;
+    const eyeSpacing = r * 0.3;
     const eyeY = -r * 0.1;
     const eyeSize = r * 0.18;
     
@@ -636,13 +595,13 @@ function drawKawaiiFace(ctx, r, expression, typeIndex) {
     // Nose (small pink triangle)
     ctx.fillStyle = '#FF69B4';
     ctx.beginPath();
-    ctx.moveTo(0, r * 0.05);
-    ctx.lineTo(-r * 0.06, r * 0.15);
-    ctx.lineTo(r * 0.06, r * 0.15);
+    ctx.moveTo(0, r * 0.1);
+    ctx.lineTo(-r * 0.07, r * 0.22);
+    ctx.lineTo(r * 0.07, r * 0.22);
     ctx.closePath();
     ctx.fill();
     
-    // Mouth - cute "w" shape or ":3"
+    // Mouth - cute ":3" shape
     if (expression !== 'blep') {
         ctx.strokeStyle = '#333';
         ctx.lineWidth = 2;
@@ -650,10 +609,10 @@ function drawKawaiiFace(ctx, r, expression, typeIndex) {
         
         // :3 mouth
         ctx.beginPath();
-        ctx.arc(-r * 0.1, r * 0.25, r * 0.08, 0, Math.PI);
+        ctx.arc(-r * 0.12, r * 0.32, r * 0.1, 0, Math.PI);
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(r * 0.1, r * 0.25, r * 0.08, 0, Math.PI);
+        ctx.arc(r * 0.12, r * 0.32, r * 0.1, 0, Math.PI);
         ctx.stroke();
     }
     
@@ -664,26 +623,26 @@ function drawKawaiiFace(ctx, r, expression, typeIndex) {
     // Left whiskers
     for (let i = -1; i <= 1; i++) {
         ctx.beginPath();
-        ctx.moveTo(-r * 0.25, r * 0.2 + i * r * 0.08);
-        ctx.lineTo(-r * 0.55, r * 0.15 + i * r * 0.12);
+        ctx.moveTo(-r * 0.3, r * 0.25 + i * r * 0.1);
+        ctx.lineTo(-r * 0.7, r * 0.2 + i * r * 0.15);
         ctx.stroke();
     }
     
     // Right whiskers
     for (let i = -1; i <= 1; i++) {
         ctx.beginPath();
-        ctx.moveTo(r * 0.25, r * 0.2 + i * r * 0.08);
-        ctx.lineTo(r * 0.55, r * 0.15 + i * r * 0.12);
+        ctx.moveTo(r * 0.3, r * 0.25 + i * r * 0.1);
+        ctx.lineTo(r * 0.7, r * 0.2 + i * r * 0.15);
         ctx.stroke();
     }
     
     // Blush circles
     ctx.fillStyle = 'rgba(255, 150, 180, 0.7)';
     ctx.beginPath();
-    ctx.ellipse(-r * 0.4, r * 0.15, r * 0.12, r * 0.08, 0, 0, Math.PI * 2);
+    ctx.ellipse(-r * 0.5, r * 0.2, r * 0.14, r * 0.09, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(r * 0.4, r * 0.15, r * 0.12, r * 0.08, 0, 0, Math.PI * 2);
+    ctx.ellipse(r * 0.5, r * 0.2, r * 0.14, r * 0.09, 0, 0, Math.PI * 2);
     ctx.fill();
 }
 
@@ -739,7 +698,7 @@ function drawBlepFace(ctx, spacing, y, size, r) {
     // Tongue sticking out (blep!)
     ctx.fillStyle = '#FF69B4';
     ctx.beginPath();
-    ctx.ellipse(0, r * 0.35, r * 0.08, r * 0.12, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, r * 0.42, r * 0.1, r * 0.14, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = '#E05080';
     ctx.lineWidth = 1;
@@ -931,7 +890,7 @@ function populateCatGuide() {
             'linear-gradient(45deg, #FF0000, #FF7F00, #FFFF00, #00FF00, #0000FF, #9400D3)' : 
             cat.color;
         item.innerHTML = `
-            <div class="guide-cat-icon" style="background: ${bgColor};">
+            <div class="guide-cat-icon" style="background: ${bgColor}; border-radius: 50%;">
                 <span style="font-size: 14px;">🐱</span>
             </div>
             <span>${cat.name}</span>
