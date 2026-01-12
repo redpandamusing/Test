@@ -1,29 +1,36 @@
-// Suika Cats Game
-// A Suika-style game with adorable cats!
+// Suika Cats Game - Nyan Cat Style! 🌈
+// A Suika-style game with adorable anime cats!
 
 const { Engine, Render, Runner, Bodies, Body, Composite, Events, Mouse, Vector } = Matter;
 
-// Cat types from smallest to largest
+// Cat types from smallest to largest - Nyan Cat rainbow palette!
 const CAT_TYPES = [
-    { name: 'Kitten', radius: 20, color: '#FFB6C1', points: 1, emoji: '🐱' },
-    { name: 'Tabby', radius: 28, color: '#FFA07A', points: 3, emoji: '😺' },
-    { name: 'Ginger', radius: 36, color: '#FF8C00', points: 6, emoji: '😸' },
-    { name: 'Siamese', radius: 44, color: '#DEB887', points: 10, emoji: '😹' },
-    { name: 'Persian', radius: 52, color: '#F5F5DC', points: 15, emoji: '😻' },
-    { name: 'Maine Coon', radius: 62, color: '#CD853F', points: 21, emoji: '😼' },
-    { name: 'Chonker', radius: 72, color: '#808080', points: 28, emoji: '😽' },
-    { name: 'Chungus', radius: 84, color: '#4169E1', points: 36, emoji: '🙀' },
-    { name: 'Absolute Unit', radius: 98, color: '#9932CC', points: 45, emoji: '😾' },
-    { name: 'Mega Cat', radius: 115, color: '#FFD700', points: 55, emoji: '😿' },
-    { name: 'ULTIMATE CAT', radius: 135, color: '#FF1493', points: 100, emoji: '😸✨' }
+    { name: 'Tiny Nyan', radius: 20, color: '#FFB7C5', secondaryColor: '#FF69B4', points: 1, expression: 'happy' },
+    { name: 'Mini Nyan', radius: 28, color: '#FFDD94', secondaryColor: '#FFB347', points: 3, expression: 'happy' },
+    { name: 'Smol Nyan', radius: 36, color: '#B4F8C8', secondaryColor: '#7FFF00', points: 6, expression: 'blep' },
+    { name: 'Nyan', radius: 44, color: '#A0E7E5', secondaryColor: '#40E0D0', points: 10, expression: 'kawaii' },
+    { name: 'Nyan+', radius: 52, color: '#B4A7FF', secondaryColor: '#9370DB', points: 15, expression: 'happy' },
+    { name: 'Super Nyan', radius: 62, color: '#FFB6D9', secondaryColor: '#FF69B4', points: 21, expression: 'star' },
+    { name: 'Mega Nyan', radius: 72, color: '#87CEEB', secondaryColor: '#4169E1', points: 28, expression: 'kawaii' },
+    { name: 'Ultra Nyan', radius: 84, color: '#DDA0DD', secondaryColor: '#BA55D3', points: 36, expression: 'love' },
+    { name: 'Hyper Nyan', radius: 98, color: '#F0E68C', secondaryColor: '#FFD700', points: 45, expression: 'star' },
+    { name: 'Omega Nyan', radius: 115, color: '#FFA07A', secondaryColor: '#FF6347', points: 55, expression: 'love' },
+    { name: 'RAINBOW NYAN', radius: 135, color: 'rainbow', secondaryColor: '#FFD700', points: 100, expression: 'rainbow' }
 ];
+
+// Rainbow colors for effects
+const RAINBOW_COLORS = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3'];
 
 // Game configuration
 const GAME_WIDTH = 400;
 const GAME_HEIGHT = 600;
 const DROP_ZONE_HEIGHT = 80;
 const WALL_THICKNESS = 20;
-const DROP_COOLDOWN = 500; // ms between drops
+const DROP_COOLDOWN = 500;
+
+// Animation state
+let animationFrame = 0;
+let sparkles = [];
 
 // Game state
 let engine, render, runner;
@@ -39,11 +46,9 @@ let droppedBodies = new Set();
 
 // Initialize the game
 function init() {
-    // Create engine
     engine = Engine.create();
     engine.gravity.y = 1;
 
-    // Create renderer
     const canvas = document.getElementById('game-canvas');
     canvas.width = GAME_WIDTH;
     canvas.height = GAME_HEIGHT;
@@ -59,21 +64,17 @@ function init() {
         }
     });
 
-    // Create walls
     const walls = [
-        // Left wall
         Bodies.rectangle(-WALL_THICKNESS/2, GAME_HEIGHT/2, WALL_THICKNESS, GAME_HEIGHT, { 
             isStatic: true, 
             render: { fillStyle: '#8B4513' },
             label: 'wall'
         }),
-        // Right wall
         Bodies.rectangle(GAME_WIDTH + WALL_THICKNESS/2, GAME_HEIGHT/2, WALL_THICKNESS, GAME_HEIGHT, { 
             isStatic: true, 
             render: { fillStyle: '#8B4513' },
             label: 'wall'
         }),
-        // Bottom
         Bodies.rectangle(GAME_WIDTH/2, GAME_HEIGHT + WALL_THICKNESS/2, GAME_WIDTH + WALL_THICKNESS*2, WALL_THICKNESS, { 
             isStatic: true, 
             render: { fillStyle: '#8B4513' },
@@ -83,18 +84,13 @@ function init() {
     
     Composite.add(engine.world, walls);
 
-    // Set up collision detection
     Events.on(engine, 'collisionStart', handleCollision);
-    
-    // Set up custom rendering for cats
     Events.on(render, 'afterRender', drawCatFaces);
 
-    // Start the engine and renderer
     Render.run(render);
     runner = Runner.create();
     Runner.run(runner, engine);
 
-    // Set up mouse tracking
     const canvas_element = document.getElementById('game-canvas');
     canvas_element.addEventListener('mousemove', (e) => {
         const rect = canvas_element.getBoundingClientRect();
@@ -105,51 +101,83 @@ function init() {
     canvas_element.addEventListener('touchstart', handleTouch);
     canvas_element.addEventListener('touchmove', handleTouchMove);
 
-    // Set up restart button
     document.getElementById('restart-btn').addEventListener('click', restartGame);
 
-    // Initialize UI
     updateScore();
     generateNextCat();
     populateCatGuide();
     
-    // Start game over check loop
     setInterval(checkGameOver, 1000);
+    
+    // Animation loop for sparkles
+    setInterval(() => {
+        animationFrame++;
+        // Update sparkles
+        sparkles = sparkles.filter(s => s.life > 0);
+        sparkles.forEach(s => {
+            s.x += s.vx;
+            s.y += s.vy;
+            s.life--;
+            s.size *= 0.95;
+        });
+    }, 50);
 }
 
-// Generate the next cat to drop
 function generateNextCat() {
     currentCatType = nextCatType;
-    // Only spawn small cats (first 5 types)
     nextCatType = Math.floor(Math.random() * 5);
     updateNextCatDisplay();
 }
 
-// Update the next cat preview display
 function updateNextCatDisplay() {
     const display = document.getElementById('next-cat-display');
     const cat = CAT_TYPES[nextCatType];
-    display.innerHTML = `<div style="
-        width: ${Math.min(cat.radius * 1.5, 40)}px;
-        height: ${Math.min(cat.radius * 1.5, 40)}px;
-        background: ${cat.color};
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: ${Math.min(cat.radius * 0.8, 20)}px;
-        border: 2px solid rgba(0,0,0,0.2);
-        box-shadow: inset 0 -3px 6px rgba(0,0,0,0.1);
-    ">${cat.emoji.charAt(0) === '😸' && cat.emoji.length > 2 ? '😸' : cat.emoji}</div>`;
+    
+    // Create a mini canvas for the preview
+    display.innerHTML = `<canvas id="preview-canvas" width="50" height="50"></canvas>`;
+    const previewCanvas = document.getElementById('preview-canvas');
+    const ctx = previewCanvas.getContext('2d');
+    
+    // Draw mini cat
+    drawCatPreview(ctx, 25, 25, Math.min(cat.radius * 0.6, 20), cat, nextCatType);
 }
 
-// Handle mouse click to drop cat
+function drawCatPreview(ctx, x, y, r, cat, typeIndex) {
+    ctx.save();
+    ctx.translate(x, y);
+    
+    // Body
+    const gradient = ctx.createRadialGradient(0, -r * 0.2, 0, 0, 0, r);
+    gradient.addColorStop(0, lightenColor(cat.color === 'rainbow' ? '#FFB7C5' : cat.color, 40));
+    gradient.addColorStop(1, cat.color === 'rainbow' ? '#FFB7C5' : cat.color);
+    
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+    
+    // Simple face
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.arc(-r * 0.3, -r * 0.1, r * 0.15, 0, Math.PI * 2);
+    ctx.arc(r * 0.3, -r * 0.1, r * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Blush
+    ctx.fillStyle = 'rgba(255, 150, 180, 0.6)';
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.5, r * 0.2, r * 0.2, r * 0.12, 0, 0, Math.PI * 2);
+    ctx.ellipse(r * 0.5, r * 0.2, r * 0.2, r * 0.12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
+}
+
 function handleClick(e) {
     if (!canDrop || gameOver) return;
     dropCat(mouseX);
 }
 
-// Handle touch events
 function handleTouch(e) {
     e.preventDefault();
     if (!canDrop || gameOver) return;
@@ -165,11 +193,9 @@ function handleTouchMove(e) {
     mouseX = e.touches[0].clientX - rect.left;
 }
 
-// Drop a cat at the specified x position
 function dropCat(x) {
     const cat = CAT_TYPES[currentCatType];
     
-    // Clamp x position to stay within walls
     const minX = cat.radius + 5;
     const maxX = GAME_WIDTH - cat.radius - 5;
     x = Math.max(minX, Math.min(maxX, x));
@@ -177,7 +203,6 @@ function dropCat(x) {
     const body = createCatBody(x, DROP_ZONE_HEIGHT / 2, currentCatType);
     Composite.add(engine.world, body);
     
-    // Mark as dropped after a short delay (to allow it to fall a bit)
     setTimeout(() => {
         droppedBodies.add(body.id);
     }, 500);
@@ -190,7 +215,6 @@ function dropCat(x) {
     }, DROP_COOLDOWN);
 }
 
-// Create a cat body
 function createCatBody(x, y, typeIndex) {
     const cat = CAT_TYPES[typeIndex];
     const body = Bodies.circle(x, y, cat.radius, {
@@ -200,16 +224,15 @@ function createCatBody(x, y, typeIndex) {
         density: 0.001,
         label: `cat_${typeIndex}`,
         render: {
-            fillStyle: cat.color,
-            strokeStyle: 'rgba(0,0,0,0.3)',
-            lineWidth: 2
+            fillStyle: 'transparent',
+            strokeStyle: 'transparent',
+            lineWidth: 0
         }
     });
     body.catType = typeIndex;
     return body;
 }
 
-// Handle collisions
 function handleCollision(event) {
     const pairs = event.pairs;
     
@@ -217,24 +240,20 @@ function handleCollision(event) {
         const bodyA = pair.bodyA;
         const bodyB = pair.bodyB;
         
-        // Check if both are cats of the same type
         if (bodyA.catType !== undefined && bodyB.catType !== undefined) {
             if (bodyA.catType === bodyB.catType && bodyA.catType < CAT_TYPES.length - 1) {
-                // Queue merge (don't modify during collision callback)
                 pendingMerges.push({ bodyA, bodyB });
             }
         }
     }
 }
 
-// Process pending merges (called in game loop)
 function processMerges() {
     const processed = new Set();
     
     for (let merge of pendingMerges) {
         const { bodyA, bodyB } = merge;
         
-        // Skip if already processed or removed
         if (processed.has(bodyA.id) || processed.has(bodyB.id)) continue;
         if (!Composite.get(engine.world, bodyA.id, 'body')) continue;
         if (!Composite.get(engine.world, bodyB.id, 'body')) continue;
@@ -242,44 +261,53 @@ function processMerges() {
         processed.add(bodyA.id);
         processed.add(bodyB.id);
         
-        // Calculate merge position (midpoint)
         const midX = (bodyA.position.x + bodyB.position.x) / 2;
         const midY = (bodyA.position.y + bodyB.position.y) / 2;
         
-        // Remove old cats
         Composite.remove(engine.world, bodyA);
         Composite.remove(engine.world, bodyB);
         droppedBodies.delete(bodyA.id);
         droppedBodies.delete(bodyB.id);
         
-        // Create new bigger cat
         const newTypeIndex = bodyA.catType + 1;
         const newBody = createCatBody(midX, midY, newTypeIndex);
         Composite.add(engine.world, newBody);
         droppedBodies.add(newBody.id);
         
-        // Update score
         score += CAT_TYPES[newTypeIndex].points;
         updateScore();
         
-        // Create merge effect
-        createMergeEffect(midX, midY, CAT_TYPES[newTypeIndex].color);
+        createMergeEffect(midX, midY, newTypeIndex);
     }
     
     pendingMerges = [];
 }
 
-// Create visual effect for merging
-function createMergeEffect(x, y, color) {
-    // Create particles using temporary DOM elements
+function createMergeEffect(x, y, typeIndex) {
+    // Add sparkles
+    for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        const speed = 2 + Math.random() * 3;
+        sparkles.push({
+            x: x,
+            y: y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 20,
+            size: 8 + Math.random() * 8,
+            color: RAINBOW_COLORS[i % RAINBOW_COLORS.length],
+            type: Math.random() > 0.5 ? 'star' : 'circle'
+        });
+    }
+    
+    // Create DOM particles
     for (let i = 0; i < 8; i++) {
         const particle = document.createElement('div');
+        const color = RAINBOW_COLORS[i % RAINBOW_COLORS.length];
+        particle.innerHTML = ['✨', '⭐', '💖', '🌟', '💫'][Math.floor(Math.random() * 5)];
         particle.style.cssText = `
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            background: ${color};
-            border-radius: 50%;
+            position: fixed;
+            font-size: 20px;
             pointer-events: none;
             z-index: 1000;
         `;
@@ -293,29 +321,30 @@ function createMergeEffect(x, y, color) {
         document.body.appendChild(particle);
         
         const angle = (i / 8) * Math.PI * 2;
-        const distance = 50;
-        const targetX = rect.left + x + Math.cos(angle) * distance;
-        const targetY = rect.top + y + Math.sin(angle) * distance;
+        const distance = 60;
         
         particle.animate([
-            { transform: 'scale(1)', opacity: 1 },
-            { transform: `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px) scale(0)`, opacity: 0 }
+            { transform: 'scale(0) rotate(0deg)', opacity: 1 },
+            { transform: `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px) scale(1.5) rotate(360deg)`, opacity: 0 }
         ], {
-            duration: 400,
+            duration: 600,
             easing: 'ease-out'
         }).onfinish = () => particle.remove();
     }
 }
 
-// Draw cat faces on top of physics bodies
 function drawCatFaces() {
     const ctx = render.context;
     const bodies = Composite.allBodies(engine.world);
     
+    // Draw sparkles first (background)
+    drawSparkles(ctx);
+    
     // Draw drop zone indicator
     ctx.save();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.setLineDash([8, 8]);
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(0, DROP_ZONE_HEIGHT);
     ctx.lineTo(GAME_WIDTH, DROP_ZONE_HEIGHT);
@@ -323,15 +352,20 @@ function drawCatFaces() {
     ctx.setLineDash([]);
     ctx.restore();
     
-    // Draw preview of cat to drop
+    // Draw preview
     if (canDrop && !gameOver) {
         const cat = CAT_TYPES[currentCatType];
         const previewX = Math.max(cat.radius + 5, Math.min(GAME_WIDTH - cat.radius - 5, mouseX));
         
-        // Draw drop line
+        // Rainbow drop line
         ctx.save();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.setLineDash([3, 3]);
+        const lineGradient = ctx.createLinearGradient(0, DROP_ZONE_HEIGHT, 0, GAME_HEIGHT);
+        RAINBOW_COLORS.forEach((color, i) => {
+            lineGradient.addColorStop(i / (RAINBOW_COLORS.length - 1), color + '60');
+        });
+        ctx.strokeStyle = lineGradient;
+        ctx.lineWidth = 3;
+        ctx.setLineDash([5, 5]);
         ctx.beginPath();
         ctx.moveTo(previewX, DROP_ZONE_HEIGHT / 2 + cat.radius);
         ctx.lineTo(previewX, GAME_HEIGHT);
@@ -341,8 +375,8 @@ function drawCatFaces() {
         
         // Draw preview cat
         ctx.save();
-        ctx.globalAlpha = 0.6;
-        drawCat(ctx, previewX, DROP_ZONE_HEIGHT / 2, cat, currentCatType);
+        ctx.globalAlpha = 0.7;
+        drawNyanCat(ctx, previewX, DROP_ZONE_HEIGHT / 2, cat, currentCatType);
         ctx.restore();
     }
     
@@ -350,203 +384,488 @@ function drawCatFaces() {
     for (let body of bodies) {
         if (body.catType !== undefined) {
             const cat = CAT_TYPES[body.catType];
-            drawCat(ctx, body.position.x, body.position.y, cat, body.catType, body.angle);
+            drawNyanCat(ctx, body.position.x, body.position.y, cat, body.catType, body.angle);
         }
     }
     
-    // Process any pending merges
     processMerges();
 }
 
-// Draw a single cat
-function drawCat(ctx, x, y, cat, typeIndex, angle = 0) {
+function drawSparkles(ctx) {
+    for (let sparkle of sparkles) {
+        ctx.save();
+        ctx.translate(sparkle.x, sparkle.y);
+        ctx.globalAlpha = sparkle.life / 20;
+        ctx.fillStyle = sparkle.color;
+        
+        if (sparkle.type === 'star') {
+            drawStar(ctx, 0, 0, 5, sparkle.size, sparkle.size / 2);
+        } else {
+            ctx.beginPath();
+            ctx.arc(0, 0, sparkle.size / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.restore();
+    }
+}
+
+function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
+    let rot = Math.PI / 2 * 3;
+    let x = cx;
+    let y = cy;
+    const step = Math.PI / spikes;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - outerRadius);
+    
+    for (let i = 0; i < spikes; i++) {
+        x = cx + Math.cos(rot) * outerRadius;
+        y = cy + Math.sin(rot) * outerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+
+        x = cx + Math.cos(rot) * innerRadius;
+        y = cy + Math.sin(rot) * innerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+    }
+    
+    ctx.lineTo(cx, cy - outerRadius);
+    ctx.closePath();
+    ctx.fill();
+}
+
+// Main Nyan Cat drawing function - KAWAII STYLE!
+function drawNyanCat(ctx, x, y, cat, typeIndex, angle = 0) {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
     
     const r = cat.radius;
+    const isRainbow = cat.color === 'rainbow';
+    const bobOffset = Math.sin(animationFrame * 0.3 + typeIndex) * 2;
     
-    // Body (circle with gradient)
-    const gradient = ctx.createRadialGradient(0, -r * 0.2, 0, 0, 0, r);
-    gradient.addColorStop(0, lightenColor(cat.color, 30));
-    gradient.addColorStop(1, cat.color);
+    // Rainbow trail for special cats (type 8+)
+    if (typeIndex >= 8) {
+        drawRainbowTrail(ctx, r);
+    }
     
+    // Pop-tart body (rounded rectangle like Nyan Cat!)
+    ctx.save();
+    ctx.translate(0, bobOffset);
+    
+    // Body base color
+    let bodyColor = isRainbow ? getRainbowGradient(ctx, r) : cat.color;
+    let bodyGradient;
+    
+    if (isRainbow) {
+        bodyGradient = ctx.createLinearGradient(-r, -r, r, r);
+        RAINBOW_COLORS.forEach((color, i) => {
+            bodyGradient.addColorStop(i / (RAINBOW_COLORS.length - 1), color);
+        });
+    } else {
+        bodyGradient = ctx.createRadialGradient(0, -r * 0.3, 0, 0, 0, r);
+        bodyGradient.addColorStop(0, lightenColor(cat.color, 50));
+        bodyGradient.addColorStop(0.7, cat.color);
+        bodyGradient.addColorStop(1, darkenColor(cat.color, 10));
+    }
+    
+    // Main body (slightly rounded square like pop-tart)
+    const bodySize = r * 0.85;
     ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fillStyle = gradient;
+    roundedRect(ctx, -bodySize, -bodySize, bodySize * 2, bodySize * 2, r * 0.3);
+    ctx.fillStyle = bodyGradient;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    
+    // Pop-tart frosting/sprinkles pattern
+    if (typeIndex >= 3) {
+        drawSprinkles(ctx, bodySize, cat.secondaryColor);
+    }
+    
+    // Outer glow for bigger cats
+    if (typeIndex >= 6) {
+        ctx.shadowColor = cat.secondaryColor;
+        ctx.shadowBlur = 15;
+    }
+    
+    // Cat face area (gray overlay)
+    const faceSize = r * 0.7;
+    ctx.beginPath();
+    ctx.arc(0, 0, faceSize, 0, Math.PI * 2);
+    ctx.fillStyle = '#808080';
+    ctx.fill();
     
     // Ears
-    const earSize = r * 0.35;
-    const earOffset = r * 0.6;
+    drawKawaiiEars(ctx, r, '#808080', '#FFB6C1');
     
-    // Left ear
-    ctx.beginPath();
-    ctx.moveTo(-earOffset, -r * 0.5);
-    ctx.lineTo(-earOffset - earSize * 0.5, -r - earSize * 0.3);
-    ctx.lineTo(-earOffset + earSize * 0.5, -r * 0.6);
-    ctx.closePath();
-    ctx.fillStyle = cat.color;
-    ctx.fill();
-    ctx.stroke();
+    // Face based on expression
+    drawKawaiiFace(ctx, r, cat.expression, typeIndex);
     
-    // Left ear inner
-    ctx.beginPath();
-    ctx.moveTo(-earOffset, -r * 0.6);
-    ctx.lineTo(-earOffset - earSize * 0.25, -r - earSize * 0.1);
-    ctx.lineTo(-earOffset + earSize * 0.25, -r * 0.65);
-    ctx.closePath();
-    ctx.fillStyle = '#FFB6C1';
-    ctx.fill();
+    ctx.restore(); // Remove bob offset
     
-    // Right ear
-    ctx.beginPath();
-    ctx.moveTo(earOffset, -r * 0.5);
-    ctx.lineTo(earOffset + earSize * 0.5, -r - earSize * 0.3);
-    ctx.lineTo(earOffset - earSize * 0.5, -r * 0.6);
-    ctx.closePath();
-    ctx.fillStyle = cat.color;
-    ctx.fill();
-    ctx.stroke();
-    
-    // Right ear inner
-    ctx.beginPath();
-    ctx.moveTo(earOffset, -r * 0.6);
-    ctx.lineTo(earOffset + earSize * 0.25, -r - earSize * 0.1);
-    ctx.lineTo(earOffset - earSize * 0.25, -r * 0.65);
-    ctx.closePath();
-    ctx.fillStyle = '#FFB6C1';
-    ctx.fill();
-    
-    // Eyes
-    const eyeY = -r * 0.15;
-    const eyeSpacing = r * 0.35;
-    const eyeSize = r * 0.2;
-    
-    // Eye whites
-    ctx.fillStyle = 'white';
-    ctx.beginPath();
-    ctx.ellipse(-eyeSpacing, eyeY, eyeSize, eyeSize * 1.2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(eyeSpacing, eyeY, eyeSize, eyeSize * 1.2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Pupils
-    ctx.fillStyle = '#333';
-    ctx.beginPath();
-    ctx.ellipse(-eyeSpacing, eyeY, eyeSize * 0.5, eyeSize * 0.8, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(eyeSpacing, eyeY, eyeSize * 0.5, eyeSize * 0.8, 0, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Eye shine
-    ctx.fillStyle = 'white';
-    ctx.beginPath();
-    ctx.arc(-eyeSpacing - eyeSize * 0.15, eyeY - eyeSize * 0.2, eyeSize * 0.2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(eyeSpacing - eyeSize * 0.15, eyeY - eyeSize * 0.2, eyeSize * 0.2, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Nose
-    ctx.fillStyle = '#FF69B4';
-    ctx.beginPath();
-    ctx.moveTo(0, r * 0.1);
-    ctx.lineTo(-r * 0.08, r * 0.2);
-    ctx.lineTo(r * 0.08, r * 0.2);
-    ctx.closePath();
-    ctx.fill();
-    
-    // Mouth
-    ctx.strokeStyle = '#666';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(0, r * 0.2);
-    ctx.lineTo(0, r * 0.35);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, r * 0.35);
-    ctx.quadraticCurveTo(-r * 0.15, r * 0.45, -r * 0.2, r * 0.35);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, r * 0.35);
-    ctx.quadraticCurveTo(r * 0.15, r * 0.45, r * 0.2, r * 0.35);
-    ctx.stroke();
-    
-    // Whiskers
-    ctx.strokeStyle = '#666';
-    ctx.lineWidth = 1;
-    
-    // Left whiskers
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.2, r * 0.25);
-    ctx.lineTo(-r * 0.7, r * 0.15);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.2, r * 0.3);
-    ctx.lineTo(-r * 0.7, r * 0.3);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.2, r * 0.35);
-    ctx.lineTo(-r * 0.7, r * 0.45);
-    ctx.stroke();
-    
-    // Right whiskers
-    ctx.beginPath();
-    ctx.moveTo(r * 0.2, r * 0.25);
-    ctx.lineTo(r * 0.7, r * 0.15);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(r * 0.2, r * 0.3);
-    ctx.lineTo(r * 0.7, r * 0.3);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(r * 0.2, r * 0.35);
-    ctx.lineTo(r * 0.7, r * 0.45);
-    ctx.stroke();
-    
-    // Blush
-    ctx.fillStyle = 'rgba(255, 182, 193, 0.5)';
-    ctx.beginPath();
-    ctx.ellipse(-r * 0.5, r * 0.2, r * 0.15, r * 0.1, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(r * 0.5, r * 0.2, r * 0.15, r * 0.1, 0, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Size indicator for larger cats
+    // Floating stars/hearts for special cats
     if (typeIndex >= 5) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-        ctx.font = `bold ${r * 0.3}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(cat.name.split(' ')[0], 0, r * 0.65);
+        drawFloatingEffects(ctx, r, typeIndex);
     }
     
     ctx.restore();
 }
 
-// Lighten a color
-function lightenColor(color, percent) {
-    const num = parseInt(color.replace('#', ''), 16);
-    const amt = Math.round(2.55 * percent);
-    const R = (num >> 16) + amt;
-    const G = (num >> 8 & 0x00FF) + amt;
-    const B = (num & 0x0000FF) + amt;
-    return '#' + (
-        0x1000000 +
-        (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
-        (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
-        (B < 255 ? B < 1 ? 0 : B : 255)
-    ).toString(16).slice(1);
+function roundedRect(ctx, x, y, width, height, radius) {
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
 }
 
-// Update score display
+function drawSprinkles(ctx, size, color) {
+    ctx.save();
+    const sprinkleColors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA'];
+    
+    for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2 + animationFrame * 0.02;
+        const dist = size * 0.5;
+        const sx = Math.cos(angle) * dist;
+        const sy = Math.sin(angle) * dist;
+        
+        ctx.fillStyle = sprinkleColors[i % sprinkleColors.length];
+        ctx.beginPath();
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(angle);
+        ctx.fillRect(-3, -1, 6, 2);
+        ctx.restore();
+    }
+    ctx.restore();
+}
+
+function drawRainbowTrail(ctx, r) {
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    
+    const trailLength = r * 1.5;
+    RAINBOW_COLORS.forEach((color, i) => {
+        const yOffset = (i - 3) * (r * 0.15);
+        ctx.fillStyle = color;
+        ctx.fillRect(-r - trailLength, yOffset - r * 0.06, trailLength, r * 0.12);
+    });
+    
+    ctx.restore();
+}
+
+function drawKawaiiEars(ctx, r, baseColor, innerColor) {
+    const earSize = r * 0.4;
+    const earOffset = r * 0.45;
+    const earY = -r * 0.55;
+    
+    // Left ear
+    ctx.beginPath();
+    ctx.moveTo(-earOffset - earSize * 0.4, earY);
+    ctx.lineTo(-earOffset, earY - earSize);
+    ctx.lineTo(-earOffset + earSize * 0.4, earY);
+    ctx.closePath();
+    ctx.fillStyle = baseColor;
+    ctx.fill();
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    // Left ear inner
+    ctx.beginPath();
+    ctx.moveTo(-earOffset - earSize * 0.2, earY - earSize * 0.1);
+    ctx.lineTo(-earOffset, earY - earSize * 0.6);
+    ctx.lineTo(-earOffset + earSize * 0.2, earY - earSize * 0.1);
+    ctx.closePath();
+    ctx.fillStyle = innerColor;
+    ctx.fill();
+    
+    // Right ear
+    ctx.beginPath();
+    ctx.moveTo(earOffset - earSize * 0.4, earY);
+    ctx.lineTo(earOffset, earY - earSize);
+    ctx.lineTo(earOffset + earSize * 0.4, earY);
+    ctx.closePath();
+    ctx.fillStyle = baseColor;
+    ctx.fill();
+    ctx.stroke();
+    
+    // Right ear inner
+    ctx.beginPath();
+    ctx.moveTo(earOffset - earSize * 0.2, earY - earSize * 0.1);
+    ctx.lineTo(earOffset, earY - earSize * 0.6);
+    ctx.lineTo(earOffset + earSize * 0.2, earY - earSize * 0.1);
+    ctx.closePath();
+    ctx.fillStyle = innerColor;
+    ctx.fill();
+}
+
+function drawKawaiiFace(ctx, r, expression, typeIndex) {
+    const eyeSpacing = r * 0.25;
+    const eyeY = -r * 0.1;
+    const eyeSize = r * 0.18;
+    
+    switch(expression) {
+        case 'happy':
+            drawHappyEyes(ctx, eyeSpacing, eyeY, eyeSize);
+            break;
+        case 'kawaii':
+            drawKawaiiEyes(ctx, eyeSpacing, eyeY, eyeSize);
+            break;
+        case 'blep':
+            drawBlepFace(ctx, eyeSpacing, eyeY, eyeSize, r);
+            break;
+        case 'star':
+            drawStarEyes(ctx, eyeSpacing, eyeY, eyeSize);
+            break;
+        case 'love':
+            drawLoveEyes(ctx, eyeSpacing, eyeY, eyeSize);
+            break;
+        case 'rainbow':
+            drawRainbowEyes(ctx, eyeSpacing, eyeY, eyeSize);
+            break;
+        default:
+            drawHappyEyes(ctx, eyeSpacing, eyeY, eyeSize);
+    }
+    
+    // Nose (small pink triangle)
+    ctx.fillStyle = '#FF69B4';
+    ctx.beginPath();
+    ctx.moveTo(0, r * 0.05);
+    ctx.lineTo(-r * 0.06, r * 0.15);
+    ctx.lineTo(r * 0.06, r * 0.15);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Mouth - cute "w" shape or ":3"
+    if (expression !== 'blep') {
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        
+        // :3 mouth
+        ctx.beginPath();
+        ctx.arc(-r * 0.1, r * 0.25, r * 0.08, 0, Math.PI);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(r * 0.1, r * 0.25, r * 0.08, 0, Math.PI);
+        ctx.stroke();
+    }
+    
+    // Whiskers
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 1.5;
+    
+    // Left whiskers
+    for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.25, r * 0.2 + i * r * 0.08);
+        ctx.lineTo(-r * 0.55, r * 0.15 + i * r * 0.12);
+        ctx.stroke();
+    }
+    
+    // Right whiskers
+    for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(r * 0.25, r * 0.2 + i * r * 0.08);
+        ctx.lineTo(r * 0.55, r * 0.15 + i * r * 0.12);
+        ctx.stroke();
+    }
+    
+    // Blush circles
+    ctx.fillStyle = 'rgba(255, 150, 180, 0.7)';
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.4, r * 0.15, r * 0.12, r * 0.08, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(r * 0.4, r * 0.15, r * 0.12, r * 0.08, 0, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawHappyEyes(ctx, spacing, y, size) {
+    // Big sparkly anime eyes
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.ellipse(-spacing, y, size, size * 1.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(spacing, y, size, size * 1.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Sparkle/shine
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(-spacing - size * 0.3, y - size * 0.3, size * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(spacing - size * 0.3, y - size * 0.3, size * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Small secondary shine
+    ctx.beginPath();
+    ctx.arc(-spacing + size * 0.2, y + size * 0.2, size * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(spacing + size * 0.2, y + size * 0.2, size * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawKawaiiEyes(ctx, spacing, y, size) {
+    // ^_^ closed happy eyes
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    
+    // Left eye arc
+    ctx.beginPath();
+    ctx.arc(-spacing, y, size, Math.PI * 0.2, Math.PI * 0.8);
+    ctx.stroke();
+    
+    // Right eye arc
+    ctx.beginPath();
+    ctx.arc(spacing, y, size, Math.PI * 0.2, Math.PI * 0.8);
+    ctx.stroke();
+}
+
+function drawBlepFace(ctx, spacing, y, size, r) {
+    // Normal eyes
+    drawHappyEyes(ctx, spacing, y, size);
+    
+    // Tongue sticking out (blep!)
+    ctx.fillStyle = '#FF69B4';
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.35, r * 0.08, r * 0.12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#E05080';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+}
+
+function drawStarEyes(ctx, spacing, y, size) {
+    // Star-shaped eyes!
+    ctx.fillStyle = '#FFD700';
+    drawStar(ctx, -spacing, y, 5, size * 1.2, size * 0.5);
+    drawStar(ctx, spacing, y, 5, size * 1.2, size * 0.5);
+    
+    // Inner star shine
+    ctx.fillStyle = 'white';
+    drawStar(ctx, -spacing, y, 5, size * 0.5, size * 0.2);
+    drawStar(ctx, spacing, y, 5, size * 0.5, size * 0.2);
+}
+
+function drawLoveEyes(ctx, spacing, y, size) {
+    // Heart-shaped eyes!
+    ctx.fillStyle = '#FF69B4';
+    drawHeart(ctx, -spacing, y, size * 1.5);
+    drawHeart(ctx, spacing, y, size * 1.5);
+    
+    // Shine
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.beginPath();
+    ctx.arc(-spacing - size * 0.2, y - size * 0.2, size * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(spacing - size * 0.2, y - size * 0.2, size * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawRainbowEyes(ctx, spacing, y, size) {
+    // Rainbow spiral eyes for the ultimate cat!
+    const time = animationFrame * 0.1;
+    
+    for (let i = 0; i < 7; i++) {
+        const ringSize = size * (1.3 - i * 0.15);
+        ctx.fillStyle = RAINBOW_COLORS[(i + Math.floor(time)) % RAINBOW_COLORS.length];
+        ctx.beginPath();
+        ctx.arc(-spacing, y, ringSize, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(spacing, y, ringSize, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // Center shine
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(-spacing, y, size * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(spacing, y, size * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawHeart(ctx, x, y, size) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.beginPath();
+    ctx.moveTo(0, size * 0.3);
+    ctx.bezierCurveTo(-size * 0.5, -size * 0.3, -size, size * 0.1, 0, size * 0.8);
+    ctx.bezierCurveTo(size, size * 0.1, size * 0.5, -size * 0.3, 0, size * 0.3);
+    ctx.fill();
+    ctx.restore();
+}
+
+function drawFloatingEffects(ctx, r, typeIndex) {
+    const time = animationFrame * 0.1;
+    const numEffects = Math.min(typeIndex - 4, 4);
+    
+    for (let i = 0; i < numEffects; i++) {
+        const angle = time + (i / numEffects) * Math.PI * 2;
+        const dist = r * 1.3;
+        const ex = Math.cos(angle) * dist;
+        const ey = Math.sin(angle) * dist + Math.sin(time * 2) * 5;
+        
+        ctx.save();
+        ctx.translate(ex, ey);
+        ctx.globalAlpha = 0.8;
+        
+        if (i % 2 === 0) {
+            // Star
+            ctx.fillStyle = '#FFD700';
+            drawStar(ctx, 0, 0, 5, 8, 4);
+        } else {
+            // Heart
+            ctx.fillStyle = '#FF69B4';
+            drawHeart(ctx, 0, 0, 6);
+        }
+        
+        ctx.restore();
+    }
+}
+
+function getRainbowGradient(ctx, r) {
+    const gradient = ctx.createLinearGradient(-r, -r, r, r);
+    RAINBOW_COLORS.forEach((color, i) => {
+        gradient.addColorStop(i / (RAINBOW_COLORS.length - 1), color);
+    });
+    return gradient;
+}
+
+function lightenColor(color, percent) {
+    if (color === 'rainbow') return '#FFFFFF';
+    const num = parseInt(color.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.min(255, (num >> 16) + amt);
+    const G = Math.min(255, (num >> 8 & 0x00FF) + amt);
+    const B = Math.min(255, (num & 0x0000FF) + amt);
+    return '#' + ((1 << 24) + (R << 16) + (G << 8) + B).toString(16).slice(1);
+}
+
+function darkenColor(color, percent) {
+    if (color === 'rainbow') return '#888888';
+    const num = parseInt(color.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.max(0, (num >> 16) - amt);
+    const G = Math.max(0, (num >> 8 & 0x00FF) - amt);
+    const B = Math.max(0, (num & 0x0000FF) - amt);
+    return '#' + ((1 << 24) + (R << 16) + (G << 8) + B).toString(16).slice(1);
+}
+
 function updateScore() {
     document.getElementById('score').textContent = score;
     if (score > bestScore) {
@@ -556,7 +875,6 @@ function updateScore() {
     document.getElementById('best-score').textContent = bestScore;
 }
 
-// Check for game over
 function checkGameOver() {
     if (gameOver) return;
     
@@ -564,9 +882,7 @@ function checkGameOver() {
     
     for (let body of bodies) {
         if (body.catType !== undefined && droppedBodies.has(body.id)) {
-            // Check if any cat is above the drop zone and has settled
             if (body.position.y - CAT_TYPES[body.catType].radius < DROP_ZONE_HEIGHT) {
-                // Check if the cat has settled (low velocity)
                 const speed = Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2);
                 if (speed < 0.5) {
                     triggerGameOver();
@@ -577,7 +893,6 @@ function checkGameOver() {
     }
 }
 
-// Trigger game over
 function triggerGameOver() {
     gameOver = true;
     canDrop = false;
@@ -585,9 +900,7 @@ function triggerGameOver() {
     document.getElementById('game-over-overlay').classList.remove('hidden');
 }
 
-// Restart the game
 function restartGame() {
-    // Clear all bodies except walls
     const bodies = Composite.allBodies(engine.world);
     for (let body of bodies) {
         if (body.label !== 'wall') {
@@ -595,20 +908,18 @@ function restartGame() {
         }
     }
     
-    // Reset state
     score = 0;
     gameOver = false;
     canDrop = true;
     droppedBodies.clear();
     pendingMerges = [];
+    sparkles = [];
     
-    // Update UI
     updateScore();
     generateNextCat();
     document.getElementById('game-over-overlay').classList.add('hidden');
 }
 
-// Populate cat guide
 function populateCatGuide() {
     const guideList = document.getElementById('cat-guide-list');
     guideList.innerHTML = '';
@@ -616,9 +927,12 @@ function populateCatGuide() {
     CAT_TYPES.forEach((cat, index) => {
         const item = document.createElement('div');
         item.className = 'guide-cat';
+        const bgColor = cat.color === 'rainbow' ? 
+            'linear-gradient(45deg, #FF0000, #FF7F00, #FFFF00, #00FF00, #0000FF, #9400D3)' : 
+            cat.color;
         item.innerHTML = `
-            <div class="guide-cat-icon" style="background: ${cat.color}; font-size: ${Math.min(12 + index, 18)}px;">
-                ${cat.emoji.charAt(0) === '😸' && cat.emoji.length > 2 ? '😸' : cat.emoji}
+            <div class="guide-cat-icon" style="background: ${bgColor};">
+                <span style="font-size: 14px;">🐱</span>
             </div>
             <span>${cat.name}</span>
         `;
@@ -626,5 +940,4 @@ function populateCatGuide() {
     });
 }
 
-// Initialize game when page loads
 window.addEventListener('load', init);
