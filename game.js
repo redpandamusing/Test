@@ -132,7 +132,7 @@ function init() {
     }, 50);
 }
 
-// Shake the box - power up! VIOLENT SHAKE!
+// Shake the box - power up! Strong but controlled shake
 function shakeBox() {
     if (shakesRemaining <= 0 || gameOver) return;
     
@@ -142,57 +142,56 @@ function shakeBox() {
     // Add screen shake effect
     const gameArea = document.querySelector('.game-area');
     gameArea.classList.add('shaking');
-    setTimeout(() => gameArea.classList.remove('shaking'), 600);
+    setTimeout(() => gameArea.classList.remove('shaking'), 500);
     
-    // Apply VIOLENT forces to all cats - multiple bursts!
+    // Apply strong horizontal forces, mild upward - cats stay below drop line
     const bodies = Composite.allBodies(engine.world);
     
-    // First big shake - toss everything up!
+    // Main shake - strong sideways, gentle upward
     for (let body of bodies) {
         if (body.catType !== undefined) {
-            const forceMagnitude = 0.15 + Math.random() * 0.15; // Much stronger!
-            const forceX = (Math.random() - 0.5) * forceMagnitude * 2;
-            const forceY = -forceMagnitude - Math.random() * 0.1; // Strong upward force
+            const forceX = (Math.random() - 0.5) * 0.12; // Strong horizontal
+            const forceY = -0.02 - Math.random() * 0.02; // Mild upward (won't fly too high)
             Body.applyForce(body, body.position, { x: forceX, y: forceY });
             
-            // Also add angular velocity to make them spin!
-            Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.5);
+            // Add spin for fun
+            Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.3);
         }
     }
     
-    // Second shake after short delay - chaos!
+    // Second shake - more horizontal chaos
     setTimeout(() => {
         const bodies2 = Composite.allBodies(engine.world);
         for (let body of bodies2) {
             if (body.catType !== undefined) {
-                const forceX = (Math.random() - 0.5) * 0.2;
-                const forceY = (Math.random() - 0.5) * 0.15;
+                const forceX = (Math.random() - 0.5) * 0.1;
+                const forceY = (Math.random() - 0.5) * 0.03; // Very mild vertical
                 Body.applyForce(body, body.position, { x: forceX, y: forceY });
             }
         }
     }, 100);
     
-    // Third shake - more random bouncing
+    // Third shake - settling bounce
     setTimeout(() => {
         const bodies3 = Composite.allBodies(engine.world);
         for (let body of bodies3) {
             if (body.catType !== undefined) {
-                const forceX = (Math.random() - 0.5) * 0.15;
-                const forceY = (Math.random() - 0.5) * 0.1 - 0.05;
+                const forceX = (Math.random() - 0.5) * 0.08;
+                const forceY = (Math.random() - 0.5) * 0.02;
                 Body.applyForce(body, body.position, { x: forceX, y: forceY });
             }
         }
     }, 200);
     
-    // Create LOTS of shake particles
-    for (let i = 0; i < 40; i++) {
+    // Create shake particles
+    for (let i = 0; i < 30; i++) {
         sparkles.push({
             x: Math.random() * GAME_WIDTH,
-            y: Math.random() * GAME_HEIGHT,
-            vx: (Math.random() - 0.5) * 8,
-            vy: (Math.random() - 0.5) * 8,
-            life: 20,
-            size: 6 + Math.random() * 8,
+            y: DROP_ZONE_HEIGHT + Math.random() * (GAME_HEIGHT - DROP_ZONE_HEIGHT),
+            vx: (Math.random() - 0.5) * 6,
+            vy: (Math.random() - 0.5) * 6,
+            life: 18,
+            size: 5 + Math.random() * 6,
             color: RAINBOW_COLORS[Math.floor(Math.random() * RAINBOW_COLORS.length)],
             type: Math.random() > 0.5 ? 'star' : 'circle'
         });
