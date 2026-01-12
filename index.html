@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suika Cats 🐱</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-wrapper">
+        <div class="header">
+            <h1>🐱 Suika Cats 🐱</h1>
+            <p class="subtitle">Merge cats to make bigger cats!</p>
+        </div>
+        
+        <div class="game-container">
+            <div class="side-panel left">
+                <div class="score-container">
+                    <h3>Score</h3>
+                    <div id="score">0</div>
+                </div>
+                <div class="best-score-container">
+                    <h3>Best</h3>
+                    <div id="best-score">0</div>
+                </div>
+            </div>
+            
+            <div class="game-area">
+                <div class="next-cat-preview">
+                    <span>Next:</span>
+                    <div id="next-cat-display"></div>
+                </div>
+                <canvas id="game-canvas"></canvas>
+                <div id="game-over-overlay" class="hidden">
+                    <div class="game-over-content">
+                        <h2>Game Over! 😿</h2>
+                        <p>Final Score: <span id="final-score">0</span></p>
+                        <button id="restart-btn">Play Again 🐱</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="side-panel right">
+                <div class="cat-guide">
+                    <h3>Cat Evolution</h3>
+                    <div id="cat-guide-list"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <p>🎮 Click to drop cats • Match same cats to merge them!</p>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
